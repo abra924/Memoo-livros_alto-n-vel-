@@ -41,7 +41,8 @@ export default function MusicPage() {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .or('type.eq.music,category.eq.musica')
+        .eq('type', 'music')
+        .not('category', 'eq', 'audiobook')
         .order('created_at', { ascending: false });
 
       if (!error && data) {

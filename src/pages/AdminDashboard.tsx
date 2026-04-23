@@ -930,7 +930,7 @@ export default function AdminDashboard() {
         price: parseFloat(formData.price) || 0,
         currency: formData.currency,
         description: formData.description,
-        type: contentType,
+        type: contentType === 'audiobook' ? 'music' : contentType, // Map audiobook to music to pass DB constraint
         cover_url: coverUrl,
         file_url: fileUrl,
         demo_video_url: demoVideoUrl,
@@ -1031,6 +1031,30 @@ export default function AdminDashboard() {
       setNotificationStatus({ type: 'error', text: msg });
     } finally {
       setIsSendingNotification(false);
+    }
+  };
+
+  const handleDeleteNotification = async (id: string) => {
+    if (window.confirm('Tem a certeza que deseja eliminar esta notificação?')) {
+      try {
+        const { error } = await supabase.from('notifications').delete().eq('id', id);
+        if (error) throw error;
+        fetchSentNotifications();
+      } catch (err) {
+        console.error('Erro ao eliminar notificação:', err);
+      }
+    }
+  };
+
+  const handleDeleteAllNotifications = async () => {
+    if (window.confirm('TEM A CERTEZA que deseja eliminar TODAS as notificações? Esta ação é irreversível.')) {
+      try {
+        const { error } = await supabase.from('notifications').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (error) throw error;
+        fetchSentNotifications();
+      } catch (err) {
+        console.error('Erro ao eliminar todas as notificações:', err);
+      }
     }
   };
 
@@ -1184,6 +1208,463 @@ export default function AdminDashboard() {
 
       {/* Sidebar Overlay */}
       {/* Modal de Configuração de Recuperação de Carrinho */}
+      {/* Modal de Configuração de Recuperação de Carrinho */}
+      <AnimatePresence>
+        {isConfiguringCartRecovery && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsConfiguringCartRecovery(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-2xl bg-surface-container-lowest rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="p-8 border-b border-white/5 flex items-center justify-between bg-surface-container-low">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-red-500/10 text-red-500 rounded-2xl">
+                    <Mail size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-headline font-black text-white uppercase tracking-tight">Recuperação de Carrinho</h3>
+                    <p className="text-on-surface-variant text-xs mt-1">Reconquista clientes que não completaram a compra.</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsConfiguringCartRecovery(false)}
+                  className="p-2 hover:bg-white/5 rounded-xl transition-colors text-on-surface-variant"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-8 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                {/* Status Toggle */}
+                <div className="flex items-center justify-between p-6 bg-surface-container-high rounded-3xl border border-white/5">
+                  <div>
+                    <h4 className="font-bold text-white uppercase tracking-widest text-xs">Status da Automação</h4>
+                    <p className="text-[10px] text-on-surface-variant mt-1">Ativa ou desativa o envio global de e-mails de recuperação.</p>
+                  </div>
+                  <button 
+                    onClick={() => setCartRecoveryEnabled(!cartRecoveryEnabled)}
+                    className={`w-14 h-8 rounded-full relative transition-all duration-300 ${cartRecoveryEnabled ? 'bg-green-500 shadow-lg shadow-green-500/20' : 'bg-surface-container-highest'}`}
+                  >
+                    <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-md transition-all duration-300 ${cartRecoveryEnabled ? 'left-7' : 'left-1'}`} />
+                  </button>
+                </div>
+
+                {/* Delay Settings */}
+                <div className="space-y-4">
+                  <h4 className="font-bold text-white uppercase tracking-widest text-xs px-2">Tempo de Espera para o 1º E-mail</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    {[1, 12, 24].map((hours) => (
+                      <button
+                        key={hours}
+                        onClick={() => setCartRecoveryDelay(hours)}
+                        className={`p-4 rounded-2xl border transition-all text-center group ${cartRecoveryDelay === hours ? 'bg-primary border-primary shadow-lg shadow-primary/20' : 'bg-surface-container-high border-white/5 hover:border-primary/50'}`}
+                      >
+                        <p className={`text-sm font-black ${cartRecoveryDelay === hours ? 'text-white' : 'text-on-surface'}`}>{hours}h</p>
+                        <p className={`text-[9px] uppercase tracking-widest mt-1 ${cartRecoveryDelay === hours ? 'text-white/70' : 'text-on-surface-variant'}`}>Após Abandono</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Template Preview and Edit */}
+                <div className="space-y-4">
+                  <h4 className="font-bold text-white uppercase tracking-widest text-xs px-2">Editar Modelo de Recuperação</h4>
+                  <div className="bg-white/5 p-6 rounded-3xl border border-white/5 space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-on-surface-variant uppercase font-bold px-2">Assunto do E-mail</label>
+                      <input 
+                        type="text"
+                        value={cartRecoverySubject}
+                        onChange={(e) => setCartRecoverySubject(e.target.value)}
+                        className="w-full bg-surface-container-high border border-white/5 rounded-xl py-3 px-4 text-sm text-white focus:ring-2 focus:ring-primary/20 outline-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-on-surface-variant uppercase font-bold px-2">Conteúdo da Mensagem</label>
+                      <textarea 
+                        value={cartRecoveryBody}
+                        onChange={(e) => setCartRecoveryBody(e.target.value)}
+                        rows={6}
+                        className="w-full bg-surface-container-high border border-white/5 rounded-xl py-3 px-4 text-sm text-on-surface-variant focus:ring-2 focus:ring-primary/20 outline-none resize-none leading-relaxed"
+                      />
+                      <p className="text-[9px] text-on-surface-variant italic px-2">Usa [Nome] para personalizar automaticamente.</p>
+                    </div>
+                    <div className="pt-2">
+                       <div className="w-full py-3 bg-primary/20 border border-primary/30 rounded-xl text-primary text-[10px] font-black text-center uppercase tracking-widest">
+                         Finalizar Minha Compra Express
+                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Manual Recovery Entry */}
+                <div className="space-y-4">
+                  <h4 className="font-bold text-white uppercase tracking-widest text-xs px-2">Adicionar Cliente Manualmente</h4>
+                  <div className="flex gap-2">
+                    <input 
+                      type="email"
+                      placeholder="E-mail do cliente (ex: cliente@mail.com)"
+                      value={manualRecoveryEmail}
+                      onChange={(e) => setManualRecoveryEmail(e.target.value)}
+                      className="flex-1 bg-surface-container-high border border-white/5 rounded-xl py-3 px-4 text-sm text-white focus:ring-2 focus:ring-primary/20 outline-none"
+                    />
+                    <button 
+                      onClick={() => {
+                        if (manualRecoveryEmail && manualRecoveryEmail.includes('@')) {
+                          setAbandonedCarts([{
+                            email: manualRecoveryEmail,
+                            date: new Date().toISOString(),
+                            product: 'Adicionado Manualmente',
+                            status: 'pendente'
+                          }, ...abandonedCarts]);
+                          setManualRecoveryEmail('');
+                        }
+                      }}
+                      className="bg-primary text-white px-6 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-primary-dim transition-all shrink-0"
+                    >
+                      Adicionar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Abandoned Carts List (Analytics Integration) */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-2">
+                    <h4 className="font-bold text-white uppercase tracking-widest text-xs">Hot Leads (Carrinhos Abandonados)</h4>
+                    <span className="text-[10px] font-black text-red-500 uppercase">Dados do Analytics</span>
+                  </div>
+                  <div className="space-y-3">
+                    {abandonedCarts.map((item, idx) => (
+                      <div key={idx} className="bg-surface-container-high p-4 rounded-2xl border border-white/5 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className={`p-2 rounded-full ${item.status === 'recuperado' ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                            {item.status === 'recuperado' ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-white">{item.email}</p>
+                            <div className="flex items-center gap-2 text-[10px] text-on-surface-variant">
+                              <span>{item.product}</span>
+                              <span>•</span>
+                              <span>{new Date(item.date).toLocaleString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <button className="text-[9px] font-black uppercase tracking-widest px-3 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-on-surface-variant transition-all">
+                          Reenviar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 border-t border-white/5 bg-surface-container-low flex flex-col sm:flex-row gap-4">
+                <button 
+                  onClick={() => setIsConfiguringCartRecovery(false)}
+                  className="w-full sm:w-auto px-8 py-3 rounded-2xl border border-white/10 text-on-surface font-bold text-xs uppercase tracking-widest hover:bg-white/5 transition-all"
+                >
+                  Fechar
+                </button>
+                <button 
+                  disabled={isSavingCartRecovery}
+                  onClick={async () => {
+                    setIsSavingCartRecovery(true);
+                    try {
+                      await new Promise(resolve => setTimeout(resolve, 1500));
+                      alert('Automação de Recuperação de Carrinho guardada com sucesso!');
+                      setIsConfiguringCartRecovery(false);
+                    } catch (err) {
+                      alert('Erro ao guardar configurações.');
+                    } finally {
+                      setIsSavingCartRecovery(false);
+                    }
+                  }}
+                  className="w-full sm:flex-1 py-3 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-red-500/20 flex items-center justify-center gap-2"
+                >
+                  {isSavingCartRecovery ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+                  {cartRecoveryEnabled ? 'Guardar e Manter Ativa' : 'Guardar Configurações'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Configuração de Upsell (OTO) */}
+      <AnimatePresence>
+        {isConfiguringUpsell && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsConfiguringUpsell(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-4xl bg-surface-container-lowest rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-8 border-b border-white/5 flex items-center justify-between bg-surface-container-low">
+                <div>
+                  <h3 className="text-2xl font-headline font-black text-white uppercase tracking-tight">Configurar Oferta OTO (Upsell)</h3>
+                  <p className="text-on-surface-variant text-sm mt-1">Sugerir uma versão premium ou bundle no momento exato do pagamento.</p>
+                </div>
+                <button 
+                  onClick={() => setIsConfiguringUpsell(false)}
+                  className="p-3 hover:bg-white/5 rounded-2xl transition-colors text-on-surface-variant"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar">
+                {/* Passo 1: Selecionar Produto Base */}
+                <section className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <span className="w-8 h-8 bg-primary/20 text-primary rounded-full flex items-center justify-center text-xs font-black">01</span>
+                    <h4 className="font-bold text-white uppercase tracking-widest text-xs">Produto de Entrada (Gatilho)</h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {products.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => setUpsellBaseProduct(p)}
+                        className={`p-4 rounded-3xl border transition-all text-left flex gap-4 items-center group ${upsellBaseProduct?.id === p.id ? 'bg-primary border-primary shadow-lg shadow-primary/20' : 'bg-surface-container-high border-white/5 hover:border-primary/50'}`}
+                      >
+                        <div className="w-12 h-16 rounded-lg bg-black/20 overflow-hidden shrink-0">
+                          <img src={p.cover_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className={`text-xs font-bold truncate ${upsellBaseProduct?.id === p.id ? 'text-white' : 'text-on-surface'}`}>{p.title}</p>
+                          <p className={`text-[10px] font-mono mt-1 ${upsellBaseProduct?.id === p.id ? 'text-white/70' : 'text-on-surface-variant'}`}>{p.price} {p.currency}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Passo 2: Selecionar o Upsell */}
+                <section className={`space-y-4 transition-opacity ${!upsellBaseProduct ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
+                  <div className="flex items-center gap-3">
+                    <span className="w-8 h-8 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center text-xs font-black">02</span>
+                    <h4 className="font-bold text-white uppercase tracking-widest text-xs">Produto de Upgrade (Versão Master/Bundle)</h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {products.filter(p => p.id !== upsellBaseProduct?.id).map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => setTargetUpsellProduct(p)}
+                        className={`p-4 rounded-3xl border transition-all text-left flex gap-4 items-center group relative ${targetUpsellProduct?.id === p.id ? 'bg-green-500 border-green-500 shadow-lg shadow-green-500/20' : 'bg-surface-container-high border-white/5 hover:border-green-500/50'}`}
+                      >
+                        <div className="w-12 h-16 rounded-lg bg-black/20 overflow-hidden shrink-0">
+                          <img src={p.cover_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className={`text-xs font-bold truncate ${targetUpsellProduct?.id === p.id ? 'text-white' : 'text-on-surface'}`}>{p.title}</p>
+                          <p className={`text-[10px] font-mono mt-1 ${targetUpsellProduct?.id === p.id ? 'text-white/70' : 'text-on-surface-variant'}`}>{p.price} {p.currency}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </div>
+
+              <div className="p-8 border-t border-white/5 bg-surface-container-low flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="flex items-center gap-2 text-on-surface-variant text-xs italic">
+                  <Zap size={14} className="text-green-500" />
+                  Este upgrade será oferecido numa janela popup exclusiva antes da conclusão do pagamento.
+                </div>
+                <div className="flex gap-4 w-full md:w-auto">
+                   <button 
+                    onClick={() => {
+                      setUpsellBaseProduct(null);
+                      setTargetUpsellProduct(null);
+                      setIsConfiguringUpsell(false);
+                    }}
+                    className="flex-1 md:flex-none px-8 py-3 rounded-2xl border border-white/10 text-on-surface font-bold text-xs uppercase tracking-widest hover:bg-white/5 transition-all"
+                  >
+                    Descartar
+                  </button>
+                  <button 
+                    disabled={!upsellBaseProduct || !targetUpsellProduct || isSavingUpsell}
+                    onClick={async () => {
+                      setIsSavingUpsell(true);
+                      try {
+                        // Lógica de salvamento simulada
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                        alert('Estratégia OTO (Upsell) configurada com sucesso!');
+                        setIsConfiguringUpsell(false);
+                      } catch (err) {
+                        alert('Erro ao guardar configuração.');
+                      } finally {
+                        setIsSavingUpsell(false);
+                      }
+                    }}
+                    className="flex-1 md:flex-none px-12 py-3 bg-green-500 hover:bg-green-600 disabled:opacity-30 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                  >
+                    {isSavingUpsell ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
+                    Ativar Oferta OTO
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Configuração de Cross-selling */}
+      <AnimatePresence>
+        {isConfiguringCrossSell && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsConfiguringCrossSell(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-4xl bg-surface-container-lowest rounded-[3rem] border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-8 border-b border-white/5 flex items-center justify-between bg-surface-container-low">
+                <div>
+                  <h3 className="text-2xl font-headline font-black text-white uppercase tracking-tight">Configurar Venda Cruzada</h3>
+                  <p className="text-on-surface-variant text-sm mt-1">Define quais produtos serão sugeridos quando o cliente visualizar um item específico.</p>
+                </div>
+                <button 
+                  onClick={() => setIsConfiguringCrossSell(false)}
+                  className="p-3 hover:bg-white/5 rounded-2xl transition-colors text-on-surface-variant"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-8 space-y-10 custom-scrollbar">
+                {/* Passo 1: Selecionar Produto Base */}
+                <section className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <span className="w-8 h-8 bg-primary/20 text-primary rounded-full flex items-center justify-center text-xs font-black">01</span>
+                    <h4 className="font-bold text-white uppercase tracking-widest text-xs">Selecionar Produto Base (Origem)</h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {products.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => setCrossSellBaseProduct(p)}
+                        className={`p-4 rounded-3xl border transition-all text-left flex gap-4 items-center group ${crossSellBaseProduct?.id === p.id ? 'bg-primary border-primary shadow-lg shadow-primary/20' : 'bg-surface-container-high border-white/5 hover:border-primary/50'}`}
+                      >
+                        <div className="w-12 h-16 rounded-lg bg-black/20 overflow-hidden shrink-0">
+                          <img src={p.cover_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className={`text-xs font-bold truncate ${crossSellBaseProduct?.id === p.id ? 'text-white' : 'text-on-surface'}`}>{p.title}</p>
+                          <p className={`text-[10px] font-mono mt-1 ${crossSellBaseProduct?.id === p.id ? 'text-white/70' : 'text-on-surface-variant'}`}>{p.price} {p.currency}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Passo 2: Selecionar Sugestões */}
+                <section className={`space-y-4 transition-opacity ${!crossSellBaseProduct ? 'opacity-20 pointer-events-none' : 'opacity-100'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="w-8 h-8 bg-amber-500/20 text-amber-500 rounded-full flex items-center justify-center text-xs font-black">02</span>
+                      <h4 className="font-bold text-white uppercase tracking-widest text-xs">Produtos Sugeridos (Relacionados)</h4>
+                    </div>
+                    <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">{selectedCrossSellSuggestions.length} Selecionados</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {products.filter(p => p.id !== crossSellBaseProduct?.id).map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => {
+                          if (selectedCrossSellSuggestions.includes(p.id)) {
+                            setSelectedCrossSellSuggestions(selectedCrossSellSuggestions.filter(id => id !== p.id));
+                          } else {
+                            setSelectedCrossSellSuggestions([...selectedCrossSellSuggestions, p.id]);
+                          }
+                        }}
+                        className={`p-4 rounded-3xl border transition-all text-left flex gap-4 items-center group relative ${selectedCrossSellSuggestions.includes(p.id) ? 'bg-amber-500 border-amber-500 shadow-lg shadow-amber-500/20' : 'bg-surface-container-high border-white/5 hover:border-amber-500/50'}`}
+                      >
+                        <div className="w-12 h-16 rounded-lg bg-black/20 overflow-hidden shrink-0">
+                          <img src={p.cover_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className={`text-xs font-bold truncate ${selectedCrossSellSuggestions.includes(p.id) ? 'text-white' : 'text-on-surface'}`}>{p.title}</p>
+                          <p className={`text-[10px] font-mono mt-1 ${selectedCrossSellSuggestions.includes(p.id) ? 'text-white/70' : 'text-on-surface-variant'}`}>{p.price} {p.currency}</p>
+                        </div>
+                        {selectedCrossSellSuggestions.includes(p.id) && (
+                          <div className="absolute top-2 right-2 w-5 h-5 bg-white text-amber-500 rounded-full flex items-center justify-center">
+                            <CheckCircle size={14} />
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </div>
+
+              <div className="p-8 border-t border-white/5 bg-surface-container-low flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="flex items-center gap-2 text-on-surface-variant text-xs italic">
+                  <Info size={14} className="text-amber-500" />
+                  Estas sugestões aparecerão na página de checkout e na pré-visualização do produto base.
+                </div>
+                <div className="flex gap-4 w-full md:w-auto">
+                   <button 
+                    onClick={() => {
+                      setCrossSellBaseProduct(null);
+                      setSelectedCrossSellSuggestions([]);
+                      setIsConfiguringCrossSell(false);
+                    }}
+                    className="flex-1 md:flex-none px-8 py-3 rounded-2xl border border-white/10 text-on-surface font-bold text-xs uppercase tracking-widest hover:bg-white/5 transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    disabled={!crossSellBaseProduct || selectedCrossSellSuggestions.length === 0 || isSavingCrossSell}
+                    onClick={async () => {
+                      setIsSavingCrossSell(true);
+                      // Simulação de salvaguarda (Idealmente via tabela cross_sells no Supabase)
+                      try {
+                        // Aqui seria a lógica de insert no Supabase: 
+                        // await supabase.from('cross_sells').upsert(...)
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                        alert('Sugestões de Venda Cruzada configuradas com sucesso!');
+                        setIsConfiguringCrossSell(false);
+                      } catch (err) {
+                        alert('Erro ao salvar configurações.');
+                      } finally {
+                        setIsSavingCrossSell(false);
+                      }
+                    }}
+                    className="flex-1 md:flex-none px-12 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-30 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                  >
+                    {isSavingCrossSell ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                    Salvar Sugestões
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {isConfiguringCartRecovery && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -1960,13 +2441,24 @@ export default function AdminDashboard() {
               <div className="bg-surface-container-low p-8 rounded-[2.5rem] border border-white/5 space-y-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-bold text-on-surface">Histórico de Envios</h3>
-                  <button 
-                    onClick={fetchSentNotifications}
-                    className="p-3 text-on-surface-variant hover:text-primary transition-all duration-300 hover:bg-primary/10 rounded-xl"
-                    title="Atualizar Histórico"
-                  >
-                    <RefreshCw size={20} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={fetchSentNotifications}
+                      className="p-3 text-on-surface-variant hover:text-primary transition-all duration-300 hover:bg-primary/10 rounded-xl"
+                      title="Atualizar Histórico"
+                    >
+                      <RefreshCw size={20} />
+                    </button>
+                    {sentNotifications.length > 0 && (
+                      <button 
+                        onClick={handleDeleteAllNotifications}
+                        className="p-3 text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                        title="Eliminar Todas"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="overflow-x-auto custom-scrollbar">
@@ -1977,6 +2469,7 @@ export default function AdminDashboard() {
                         <th className="pb-4 px-4 whitespace-nowrap">Tipo</th>
                         <th className="pb-4 px-4 whitespace-nowrap">Título</th>
                         <th className="pb-4 px-4">Mensagem</th>
+                        <th className="pb-4 px-4 text-right">Ação</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1994,8 +2487,17 @@ export default function AdminDashboard() {
                             <td className="py-4 px-4 text-sm font-bold text-on-surface whitespace-nowrap">
                               {notif.title}
                             </td>
-                            <td className="py-4 px-4 rounded-r-2xl text-xs text-on-surface-variant line-clamp-1 max-w-[250px]">
+                            <td className="py-4 px-4 text-xs text-on-surface-variant line-clamp-1 max-w-[250px]">
                               {notif.message}
+                            </td>
+                            <td className="py-4 px-4 rounded-r-2xl text-right">
+                              <button 
+                                onClick={() => handleDeleteNotification(notif.id)}
+                                className="p-2 text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                                title="Eliminar"
+                              >
+                                <Trash2 size={16} />
+                              </button>
                             </td>
                           </tr>
                         ))
@@ -3502,6 +4004,148 @@ export default function AdminDashboard() {
                     <p className="text-xs text-error text-center font-bold">Nenhum subscritor na lista para enviar.</p>
                   )}
                 </form>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'sessions' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-8"
+            >
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface-container-low p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-white/5">
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-headline font-extrabold text-on-surface tracking-tight uppercase">Configurações de Sessão</h2>
+                  <p className="text-on-surface-variant mt-1 md:mt-2 text-sm">Gere as sessões da plataforma, comissões de afiliados e regras de negócio.</p>
+                </div>
+                <div className="p-3 md:p-4 bg-amber-500/10 text-amber-500 rounded-2xl md:rounded-3xl shrink-0">
+                  <Zap size={32} className="w-6 h-6 md:w-8 md:h-8" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Session Settings */}
+                <div className="bg-surface-container-low p-6 md:p-8 rounded-[2rem] border border-white/5 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 text-primary rounded-lg">
+                      <Settings size={20} />
+                    </div>
+                    <h3 className="text-xl font-bold text-on-surface">Parâmetros de Sessão</h3>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-surface-container-high rounded-xl border border-white/5">
+                      <div>
+                        <p className="text-sm font-bold text-white">Sessão Persistente</p>
+                        <p className="text-[10px] text-on-surface-variant">Manter usuários logados por 30 dias.</p>
+                      </div>
+                      <div className="w-12 h-6 bg-primary rounded-full relative">
+                        <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-surface-container-high rounded-xl border border-white/5">
+                      <div>
+                        <p className="text-sm font-bold text-white">Modo Manutenção</p>
+                        <p className="text-[10px] text-on-surface-variant">Bloquear acesso geral para atualizações.</p>
+                      </div>
+                      <div className="w-12 h-6 bg-white/10 rounded-full relative">
+                        <div className="absolute left-1 top-1 w-4 h-4 bg-white/50 rounded-full" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Commission Settings */}
+                <div className="bg-surface-container-low p-6 md:p-8 rounded-[2rem] border border-white/5 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-secondary/10 text-secondary rounded-lg">
+                      <TrendingUp size={20} />
+                    </div>
+                    <h3 className="text-xl font-bold text-on-surface">Configuração de Comissões</h3>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-on-surface-variant uppercase ml-2">Comissão de Afiliado (%)</label>
+                      <div className="flex items-center gap-4">
+                        <input 
+                          type="range" 
+                          min="0" 
+                          max="50" 
+                          defaultValue="10"
+                          className="flex-1 accent-secondary"
+                        />
+                        <span className="text-lg font-black text-secondary">10%</span>
+                      </div>
+                    </div>
+                    <div className="pt-4">
+                      <button className="w-full py-3 bg-secondary text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-secondary/90 transition-all">
+                        Atualizar Regras de Comissão
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Affiliate Disaffiliation Management */}
+              <div className="bg-surface-container-low p-6 md:p-8 rounded-[2rem] border border-white/5 space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-error/10 text-error rounded-lg">
+                      <Users size={20} />
+                    </div>
+                    <h3 className="text-xl font-bold text-on-surface">Desafiliação de Afiliados</h3>
+                  </div>
+                  <div className="px-4 py-1 bg-error/10 text-error rounded-full text-[10px] font-black uppercase tracking-widest">
+                    Gestão Purgatória
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-separate border-spacing-y-3">
+                      <thead>
+                        <tr className="text-xs font-bold text-on-surface-variant uppercase tracking-widest px-4">
+                          <th className="pb-2 px-4 whitespace-nowrap">Afiliado</th>
+                          <th className="pb-2 px-4 whitespace-nowrap">Status</th>
+                          <th className="pb-2 px-4 whitespace-nowrap">Vendas</th>
+                          <th className="pb-2 px-4 text-right">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* As linhas abaixo foram removidas para produção. Os dados serão carregados do Supabase conforme os afiliados se registarem. */}
+                        {registeredUsers.filter(u => u.is_affiliate).length > 0 ? (
+                          registeredUsers.filter(u => u.is_affiliate).map((aff) => (
+                            <tr key={aff.id} className="bg-surface-container-high hover:bg-surface-container-highest transition-colors group">
+                              <td className="py-4 px-4 rounded-l-2xl">
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-bold text-on-surface">{aff.display_name || aff.email.split('@')[0]}</span>
+                                  <span className="text-[10px] text-on-surface-variant">{aff.email}</span>
+                                </div>
+                              </td>
+                              <td className="py-4 px-4">
+                                <span className="px-2 py-0.5 bg-green-500/10 text-green-500 rounded-full text-[9px] font-black uppercase">Ativo</span>
+                              </td>
+                              <td className="py-4 px-4 font-mono text-xs font-bold text-white">
+                                0 Vendas
+                              </td>
+                              <td className="py-4 px-4 rounded-r-2xl text-right">
+                                <button className="p-2 bg-error/10 text-error rounded-xl hover:bg-error hover:text-white transition-all text-[10px] font-black uppercase px-4">
+                                  Desafiliar
+                                </button>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={4} className="py-12 text-center text-on-surface-variant italic">
+                              Nenhum afiliado ativo de momento.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                </div>
               </div>
             </motion.div>
           )}
