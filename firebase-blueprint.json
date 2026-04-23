@@ -1,0 +1,167 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user-specific settings and profile information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique identifier for the user." },
+        "displayName": { "type": "string", "description": "User's display name." },
+        "email": { "type": "string", "format": "email", "description": "User's email address." },
+        "photoURL": { "type": "string", "format": "uri", "description": "URL to the user's profile picture." },
+        "role": { "type": "string", "enum": ["admin", "user"], "description": "User's role in the system." },
+        "settings": {
+          "type": "object",
+          "properties": {
+            "theme": { "type": "string", "enum": ["light", "dark", "system"], "description": "App theme preference." },
+            "notifications": { "type": "boolean", "description": "Whether to receive notifications." },
+            "language": { "type": "string", "enum": ["pt", "en"], "description": "Preferred language." }
+          },
+          "description": "User's application settings."
+        },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the profile was created." }
+      },
+      "required": ["uid", "email"]
+    },
+    "UserLibrary": {
+      "title": "User Library",
+      "description": "Stores the books owned or bookmarked by the user.",
+      "type": "object",
+      "properties": {
+        "bookId": { "type": "string", "description": "ID of the book." },
+        "addedAt": { "type": "string", "format": "date-time", "description": "When the book was added to the library." }
+      },
+      "required": ["bookId"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Represents a digital or physical product in the catalog.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the product." },
+        "title": { "type": "string", "description": "Product title." },
+        "author": { "type": "string", "description": "Author or creator name." },
+        "category": { "type": "string", "description": "Product category." },
+        "price": { "type": "number", "description": "Product price." },
+        "type": { "type": "string", "enum": ["ebook", "music", "image"], "description": "Type of product." },
+        "coverUrl": { "type": "string", "format": "uri", "description": "URL to the product cover or thumbnail." },
+        "fileUrl": { "type": "string", "format": "uri", "description": "URL to the actual product file." },
+        "demoVideoUrl": { "type": "string", "format": "uri", "description": "URL to a demo video preview." },
+        "demoAudioUrl": { "type": "string", "format": "uri", "description": "URL to a demo audio sample." },
+        "demoEbookUrl": { "type": "string", "format": "uri", "description": "URL to a sample PDF excerpt." },
+        "description": { "type": "string", "description": "Product description." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the product was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the product was last updated." }
+      },
+      "required": ["title", "author", "type", "createdAt"]
+    },
+    "WhatsAppOrder": {
+      "title": "WhatsApp Order",
+      "description": "Pending purchase request via WhatsApp.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "product_id": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "product_id", "status"]
+    },
+    "ProductReview": {
+      "title": "Product Review",
+      "description": "Customer rating and comment for a product.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "product_id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "rating": { "type": "number", "minimum": 1, "maximum": 5 },
+        "comment": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["product_id", "user_id", "rating"]
+    },
+    "Wishlist": {
+      "title": "Wishlist",
+      "description": "Stores items the user is interested in for future purchase.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "product_id": { "type": "string" },
+        "added_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["user_id", "product_id"]
+    },
+    "Banner": {
+      "title": "Promotion Banner",
+      "description": "Dynamic banners for the home page carousel.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "image_url": { "type": "string", "format": "uri" },
+        "button_text": { "type": "string" },
+        "button_link": { "type": "string" },
+        "is_active": { "type": "boolean" },
+        "order_index": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "image_url"]
+    },
+    "Referral": {
+      "title": "Referral",
+      "description": "Tracks invited users and rewards for the affiliate system.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "referrer_id": { "type": "string" },
+        "referred_user_id": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "reward_issued": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["referrer_id"]
+    }
+  },
+  "firestore": {
+    "/referrals/{referralId}": {
+      "schema": "Referral",
+      "description": "Tracks relationships and rewards for the affiliate program."
+    },
+    "/banners/{bannerId}": {
+      "schema": "Banner",
+      "description": "Promotional banners for the homepage hero carousel."
+    },
+    "/wishlist/{wishlistId}": {
+      "schema": "Wishlist",
+      "description": "User's saved items for future reference."
+    },
+    "/product_reviews/{reviewId}": {
+      "schema": "ProductReview",
+      "description": "Collection for product ratings and feedback."
+    },
+    "/whatsapp_orders/{orderId}": {
+      "schema": "WhatsAppOrder",
+      "description": "Collection for tracking manual purchase requests."
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Private user profile data."
+    },
+    "/users/{userId}/library/{bookId}": {
+      "schema": "UserLibrary",
+      "description": "User's personal book collection."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Global product catalog."
+    },
+    "/config/{configId}": {
+      "schema": "object",
+      "description": "Global application configuration."
+    }
+  }
+}

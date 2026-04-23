@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Manrope:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Manrope", ui-sans-serif, system-ui, sans-serif;
+
+  /* Default (Dark) variables */
+  --color-surface: #061121;
+  --color-surface-container: #0c182b;
+  --color-surface-container-low: #081223;
+  --color-surface-container-high: #121e31;
+  --color-surface-container-highest: #1a273b;
+  --color-primary: #95aaff;
+  --color-primary-dim: #3766ff;
+  --color-secondary: #00fc40;
+  --color-secondary-dim: #00ec3b;
+  --color-on-surface: #f0f4ff;
+  --color-on-surface-heading: #ffffff;
+  --color-on-surface-variant: #94a3b8;
+  --color-shadow: rgba(0, 0, 0, 0.4);
+  --color-border: rgba(255, 255, 255, 0.05);
+}
+
+/* Light Theme overrides */
+.light {
+  --color-surface: #fdfdfe;
+  --color-surface-container: #ffffff;
+  --color-surface-container-low: #f9fbff;
+  --color-surface-container-high: #eff4ff;
+  --color-surface-container-highest: #e0e9fe;
+  --color-primary: #2563eb;
+  --color-primary-dim: #1d4ed8;
+  --color-secondary: #059669;
+  --color-secondary-dim: #047857;
+  --color-on-surface: #1e293b;
+  --color-on-surface-heading: #2563eb; /* Blue in light mode as requested */
+  --color-on-surface-variant: #64748b;
+  --color-shadow: rgba(37, 99, 235, 0.06);
+  --color-border: #e2e8f0;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-surface text-on-surface font-body antialiased selection:bg-secondary/30;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-headline tracking-tighter text-on-surface-heading;
+  }
+}
+
+@layer utilities {
+  .responsive-container {
+    @apply w-full max-w-7xl mx-auto px-6 lg:px-12;
+  }
+  
+  .glass-effect {
+    @apply backdrop-blur-xl bg-surface-container-highest/60;
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .book-tilt {
+    transform: perspective(1000px) rotateY(-15deg) rotateX(5deg);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  
+  .book-tilt:hover {
+    transform: perspective(1000px) rotateY(0deg) rotateX(0deg) scale(1.05);
+  }
+}
