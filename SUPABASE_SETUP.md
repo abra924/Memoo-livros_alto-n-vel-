@@ -221,4 +221,21 @@ alter table whatsapp_orders add column if not exists referrer_id uuid references
 alter table referrals enable row level security;
 create policy "Utilizadores veem os seus referidos" on referrals for select using (auth.uid() = referrer_id);
 create policy "Qualquer um pode inserir referência" on referrals for insert with check (true);
+
+-- 11. Tabela de Anúncios (Ads & Afiliados)
+create table ads (
+  id uuid default gen_random_uuid() primary key,
+  title text not null,
+  type text not null, -- 'banner', 'affiliate', 'adsense'
+  content text not null, -- URL da imagem ou código AdSense
+  link_url text, -- URL de destino (apenas para banners)
+  placement text default 'sidebar', -- 'sidebar', 'top', 'bottom', 'popup'
+  page_target text default 'all', -- 'home', 'books', 'music', 'digital', 'audiobooks', 'product', 'all'
+  is_active boolean default true,
+  created_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+alter table ads enable row level security;
+create policy "Anúncios são públicos" on ads for select using (true);
+create policy "Apenas admin gere anúncios" on ads for all using (auth.email() = 'abraaomatondo118@gmail.com');
 ```

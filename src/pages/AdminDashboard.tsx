@@ -13,34 +13,46 @@ import {
   Upload, 
   Plus, 
   Trash2, 
-  CheckCircle,
-  AlertCircle,
-  ArrowUpRight,
-  ArrowDownRight,
-  Globe,
-  MousePointer2,
+  CheckCircle, 
+  AlertCircle, 
+  Heart, 
+  MousePointer2, 
+  Shield, 
+  Clock, 
+  Star, 
+  ArrowRight, 
+  Copy, 
+  Share2, 
+  Mail, 
+  UserPlus, 
+  BarChart3, 
+  ShieldCheck, 
+  Check, 
+  Loader2, 
+  Calendar, 
+  Crown, 
+  RefreshCw,
+  Megaphone,
+  ExternalLink,
   Menu,
   X,
-  ChevronDown,
-  ShieldCheck,
-  ImageIcon as ImageIconLucide,
-  Bell as BellIcon,
-  Loader2,
-  RefreshCw,
-  Mail,
-  Send,
-  Camera,
-  Video,
+  MessageCircle,
   ShoppingBag,
   Zap,
   Pencil,
   Download,
-  MessageCircle,
-  Check,
-  XCircle,
-  Heart,
+  Send,
+  Camera,
+  Video,
+  Info,
+  ChevronDown,
+  Bell as BellIcon,
   Save,
-  Info
+  XCircle,
+  ArrowUpRight,
+  Globe,
+  Sparkles,
+  Image as ImageIconLucide
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -66,13 +78,27 @@ const topPages: any[] = [];
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'traffic' | 'content' | 'settings' | 'notifications' | 'newsletter' | 'marketing' | 'whatsapp' | 'banners' | 'watermark' | 'sessions'>('traffic');
+  const [activeTab, setActiveTab] = useState<'traffic' | 'content' | 'settings' | 'notifications' | 'newsletter' | 'marketing' | 'whatsapp' | 'banners' | 'watermark' | 'sessions' | 'ads'>('traffic');
   const [contentType, setContentType] = useState<'ebook' | 'music' | 'image' | 'video' | 'audiobook'>('ebook');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
+  const [ads, setAds] = useState<any[]>([]);
+  const [isAddingAd, setIsAddingAd] = useState(false);
+  const [isUploadingAd, setIsUploadingAd] = useState(false);
+  const [adForm, setAdForm] = useState({
+    title: '',
+    type: 'banner',
+    content: '',
+    link_url: '',
+    placement: 'sidebar',
+    page_target: 'all',
+    is_active: true
+  });
+  const [adFile, setAdFile] = useState<File | null>(null);
+  const [adFilePreview, setAdFilePreview] = useState<string | null>(null);
   const [whatsappOrders, setWhatsappOrders] = useState<any[]>([]);
   const [isProcessingOrder, setIsProcessingOrder] = useState<string | null>(null);
   const [gaId, setGaId] = useState('');
@@ -106,6 +132,8 @@ export default function AdminDashboard() {
     image_url: ''
   });
   const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [editingBanner, setEditingBanner] = useState<any | null>(null);
+  const [editingAd, setEditingAd] = useState<any | null>(null);
   const [notificationStatus, setNotificationStatus] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
   const [sentNotifications, setSentNotifications] = useState<any[]>([]);
@@ -134,7 +162,7 @@ export default function AdminDashboard() {
   const [cartRecoveryEnabled, setCartRecoveryEnabled] = useState(false);
   const [cartRecoveryDelay, setCartRecoveryDelay] = useState(24);
   const [isSavingCartRecovery, setIsSavingCartRecovery] = useState(false);
-  const [cartRecoverySubject, setCartRecoverySubject] = useState('Esqueceste-te de algo incrível na Memoo Livro Alto? 📚');
+  const [cartRecoverySubject, setCartRecoverySubject] = useState('Esqueceste-te de algo incrível na Memoo Livros? 📚');
   const [cartRecoveryBody, setCartRecoveryBody] = useState('Olá [Nome], vimos que deixaste alguns itens no teu carrinho. \n\nA tua jornada literária está à tua espera! Para te ajudar a decidir, preparámos um desconto especial exclusivo para TI. \n\nUsa o código: VOUVOLTAR10');
   const [manualRecoveryEmail, setManualRecoveryEmail] = useState('');
   const [abandonedCarts, setAbandonedCarts] = useState<any[]>([]);
@@ -492,6 +520,122 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchAds = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ads')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setAds(data || []);
+    } catch (err) {
+      console.error('Erro ao carregar anúncios:', err);
+    }
+  };
+
+  const handleAdFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected) {
+      setAdFile(selected);
+      const reader = new FileReader();
+      reader.onloadend = () => setAdFilePreview(reader.result as string);
+      reader.readAsDataURL(selected);
+    }
+  };
+
+  const handleCreateAd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUploadingAd(true);
+    try {
+      let finalContent = editingAd ? editingAd.content : adForm.content;
+
+      if (adForm.type === 'banner' && adFile) {
+        // Verificar tamanho do ficheiro (ex: max 5MB)
+        if (adFile.size > 5 * 1024 * 1024) {
+          throw new Error("O ficheiro é demasiado grande. O limite é de 5MB.");
+        }
+        const ext = adFile.name.split('.').pop();
+        const path = `ads/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+        
+        const { error: uploadErr } = await supabase.storage
+          .from('content')
+          .upload(path, adFile);
+        
+        if (uploadErr) throw uploadErr;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('content')
+          .getPublicUrl(path);
+        
+        finalContent = publicUrl;
+      }
+
+      const finalAdData = {
+        ...adForm,
+        content: finalContent
+      };
+
+      if (editingAd) {
+        const { error } = await supabase
+          .from('ads')
+          .update(finalAdData)
+          .eq('id', editingAd.id);
+        if (error) throw error;
+        alert('Anúncio atualizado com sucesso!');
+      } else {
+        const { error } = await supabase.from('ads').insert([finalAdData]);
+        if (error) throw error;
+        alert('Anúncio criado com sucesso!');
+      }
+
+      setIsAddingAd(false);
+      setEditingAd(null);
+      setAdFile(null);
+      setAdFilePreview(null);
+      setAdForm({
+        title: '',
+        type: 'banner',
+        content: '',
+        link_url: '',
+        placement: 'sidebar',
+        page_target: 'all',
+        is_active: true
+      });
+      fetchAds();
+    } catch (err: any) {
+      console.error('Erro detalhado ao processar anúncio:', err);
+      const errorMessage = err.message || 'Erro desconhecido';
+      alert(`Erro ao processar anúncio: ${errorMessage}\n\nCertifica-te de que executaste o SQL da tabela 'ads' no painel do Supabase.`);
+    } finally {
+      setIsUploadingAd(false);
+    }
+  };
+
+  const handleToggleAdStatus = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('ads')
+        .update({ is_active: !currentStatus })
+        .eq('id', id);
+      if (error) throw error;
+      fetchAds();
+    } catch (err) {
+      alert('Erro ao atualizar estado do anúncio.');
+    }
+  };
+
+  const handleDeleteAd = async (id: string) => {
+    if (window.confirm('Tens a certeza que desejas eliminar este anúncio permanentemente?')) {
+      try {
+        const { error } = await supabase.from('ads').delete().eq('id', id);
+        if (error) throw error;
+        fetchAds();
+      } catch (err) {
+        alert('Erro ao eliminar anúncio.');
+      }
+    }
+  };
+
   const fetchBanners = async () => {
     try {
       const { data, error } = await supabase
@@ -595,6 +739,7 @@ export default function AdminDashboard() {
       fetchWishlistStats();
     }
     if (activeTab === 'banners') fetchBanners();
+    if (activeTab === 'ads') fetchAds();
     if (activeTab === 'newsletter') fetchSubscribers();
     if (activeTab === 'notifications') {
       fetchUsers();
@@ -1062,9 +1207,13 @@ export default function AdminDashboard() {
     e.preventDefault();
     setIsUploadingBanner(true);
     try {
-      let imageUrl = newBanner.image_url;
+      let imageUrl = editingBanner ? editingBanner.image_url : newBanner.image_url;
 
       if (bannerFile) {
+        // Verificar tamanho do ficheiro (ex: max 5MB)
+        if (bannerFile.size > 5 * 1024 * 1024) {
+          throw new Error("O ficheiro é demasiado grande. O limite é de 5MB.");
+        }
         const fileExt = bannerFile.name.split('.').pop();
         const fileName = `${Math.random()}.${fileExt}`;
         const filePath = `banners/${fileName}`;
@@ -1084,20 +1233,33 @@ export default function AdminDashboard() {
 
       if (!imageUrl) throw new Error("A imagem é obrigatória.");
 
-      const { error } = await supabase.from('banners').insert({
-        ...newBanner,
-        image_url: imageUrl,
-        order_index: banners.length
-      });
+      if (editingBanner) {
+        // Update existing banner
+        const { error } = await supabase.from('banners').update({
+          ...newBanner,
+          image_url: imageUrl
+        }).eq('id', editingBanner.id);
+        if (error) throw error;
+        alert("Banner atualizado com sucesso!");
+      } else {
+        // Insert new banner
+        const { error } = await supabase.from('banners').insert({
+          ...newBanner,
+          image_url: imageUrl,
+          order_index: banners.length
+        });
+        if (error) throw error;
+        alert("Banner criado com sucesso!");
+      }
 
-      if (error) throw error;
-
-      alert("Banner criado com sucesso!");
       setNewBanner({ title: '', subtitle: '', button_text: '', button_link: '', image_url: '' });
       setBannerFile(null);
+      setEditingBanner(null);
       fetchBanners();
     } catch (error: any) {
-      alert("Erro ao criar banner: " + error.message);
+      console.error('Erro detalhado ao processar banner:', error);
+      const errorMessage = error.message || 'Erro desconhecido';
+      alert(`Erro ao processar banner: ${errorMessage}\n\nCertifica-te de que:\n1. O bucket 'content' existe no Supabase e é PÚBLICO.\n2. O ficheiro não é demasiado grande.\n3. Estás ligado à internet.`);
     } finally {
       setIsUploadingBanner(false);
     }
@@ -2151,8 +2313,8 @@ export default function AdminDashboard() {
             { id: 'notifications', label: 'Centro de Notificações', icon: <BellIcon size={20} /> },
             { id: 'newsletter', label: 'Newsletter & E-mail', icon: <Mail size={20} /> },
             { id: 'banners', label: 'Banners (Homepage)', icon: <ImageIcon size={20} /> },
-            { id: 'marketing', label: 'Marketing e Vendas', icon: <TrendingUp size={20} /> },
-            { id: 'sessions', label: 'Sessão e Comissões', icon: <Zap size={20} /> },
+            { id: 'ads', label: 'Anúncios (Banners/AdSense)', icon: <Megaphone size={20} /> },
+            { id: 'sessions', label: 'Comissões e Afiliados', icon: <Zap size={20} /> },
             { id: 'watermark', label: 'Marca d\'Água', icon: <ShieldCheck size={20} /> },
             { id: 'settings', label: 'Configurações', icon: <Settings size={20} /> },
           ].map((item) => (
@@ -2515,6 +2677,149 @@ export default function AdminDashboard() {
             </motion.div>
           )}
 
+          {activeTab === 'ads' && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-8 pb-32"
+            >
+              {/* Header section with Stats or Tips can go here if needed */}
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface-container-low p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-white/5">
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-headline font-extrabold text-on-surface tracking-tight uppercase">Publicidade Visual e AdSense</h2>
+                  <p className="text-on-surface-variant mt-1 md:mt-2 text-sm">Gere os seus banners publicitários e blocos de Google AdSense por página.</p>
+                </div>
+                <button 
+                  onClick={() => setIsAddingAd(true)}
+                  className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-2xl font-bold text-xs uppercase tracking-widest hover:bg-primary-dim transition-all shadow-lg shadow-primary/20"
+                >
+                  <Plus size={18} />
+                  Criar Anúncio
+                </button>
+              </div>
+
+              {/* Ads Table */}
+              <div className="bg-surface-container-low p-8 rounded-[2.5rem] border border-white/5 space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-on-surface">Campanhas Ativas ({ads.length})</h3>
+                </div>
+
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-left border-separate border-spacing-y-3">
+                    <thead>
+                      <tr className="text-xs font-bold text-on-surface-variant uppercase tracking-widest px-4">
+                        <th className="pb-4 px-4 whitespace-nowrap">Anúncio</th>
+                        <th className="pb-4 px-4 whitespace-nowrap">Tipo</th>
+                        <th className="pb-4 px-4 whitespace-nowrap">Página</th>
+                        <th className="pb-4 px-4 whitespace-nowrap">Posição</th>
+                        <th className="pb-4 px-4 whitespace-nowrap">Estado</th>
+                        <th className="pb-4 px-4 text-right">Ação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ads.map((ad) => (
+                        <tr key={ad.id} className="bg-surface-container-high hover:bg-surface-container-highest transition-colors group">
+                          <td className="py-4 px-4 rounded-l-2xl">
+                            <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 rounded-lg bg-black/20 flex items-center justify-center overflow-hidden">
+                                {ad.type === 'banner' ? (
+                                  <ImageIcon size={16} className="text-on-surface-variant" />
+                                ) : ad.type === 'affiliate' ? (
+                                  <ExternalLink size={16} className="text-on-surface-variant" />
+                                ) : (
+                                  <Zap size={16} className="text-on-surface-variant" />
+                                )}
+                              </div>
+                              <div>
+                                <div className="text-sm font-bold text-on-surface">{ad.title}</div>
+                                <div className="text-[10px] text-on-surface-variant font-mono truncate max-w-[200px]">{ad.link_url || ad.content}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="px-3 py-1 bg-white/5 text-on-surface-variant rounded-full text-[10px] font-black uppercase tracking-widest">
+                              {ad.type}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[10px] font-black text-on-surface uppercase tracking-widest">{ad.page_target}</span>
+                              <span className="text-[8px] text-on-surface-variant/60 uppercase">Página Alvo</span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <span className="text-xs font-bold text-on-surface uppercase tracking-widest">
+                              {ad.placement}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4">
+                            <button 
+                              onClick={() => handleToggleAdStatus(ad.id, ad.is_active)}
+                              className={`px-3 py-1 rounded-full text-[9px] font-black uppercase transition-all flex items-center gap-1.5 ${
+                                ad.is_active 
+                                  ? 'bg-green-500/10 text-green-500 hover:bg-amber-500/10 hover:text-amber-500' 
+                                  : 'bg-amber-500/10 text-amber-500 hover:bg-green-500/10 hover:text-green-500'
+                              }`}
+                              title={ad.is_active ? "Pausar anúncio" : "Ativar anúncio"}
+                            >
+                              <div className={`w-1.5 h-1.5 rounded-full ${ad.is_active ? 'bg-green-500' : 'bg-amber-500'} animate-pulse`} />
+                              {ad.is_active ? 'Ativo' : 'Pausado'}
+                            </button>
+                          </td>
+                          <td className="py-4 px-4 rounded-r-2xl text-right">
+                            <div className="flex justify-end gap-2">
+                              <button 
+                                onClick={() => {
+                                  setEditingAd(ad);
+                                  setAdForm({
+                                    title: ad.title || '',
+                                    type: ad.type || 'banner',
+                                    content: ad.content || '',
+                                    link_url: ad.link_url || '',
+                                    placement: ad.placement || 'sidebar',
+                                    page_target: ad.page_target || 'all',
+                                    is_active: ad.is_active
+                                  });
+                                  setIsAddingAd(true);
+                                }}
+                                className="p-2 text-on-surface-variant hover:text-primary hover:bg-primary/10 rounded-xl transition-all"
+                                title="Editar Anúncio"
+                              >
+                                <Pencil size={16} />
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteAd(ad.id)}
+                                className="p-2 text-on-surface-variant hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                                title="Eliminar Permanentemente"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {ads.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="py-20 text-center">
+                            <div className="flex flex-col items-center gap-4">
+                              <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center text-on-surface-variant">
+                                <Megaphone size={32} />
+                              </div>
+                              <div>
+                                <p className="text-on-surface-variant font-medium">Nenhum anúncio criado até agora.</p>
+                                <p className="text-[10px] text-on-surface-variant/60 uppercase tracking-widest mt-2">Dica: Adiciona links de afiliados para rentabilizar as tuas visitas.</p>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {activeTab === 'banners' && (
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
@@ -2534,18 +2839,48 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Form to create banner */}
                 <div className="lg:col-span-1 bg-surface-container-low p-8 rounded-[2.5rem] border border-white/5 space-y-6">
-                  <h3 className="text-xl font-bold text-on-surface">Novo Banner</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold text-on-surface">
+                      {editingBanner ? 'Editar Banner' : 'Novo Banner'}
+                    </h3>
+                    {editingBanner && (
+                      <button 
+                        onClick={() => {
+                          setEditingBanner(null);
+                          setNewBanner({ title: '', subtitle: '', button_text: '', button_link: '', image_url: '' });
+                          setBannerFile(null);
+                        }}
+                        className="text-[10px] font-black uppercase text-error hover:underline"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl space-y-2">
+                    <div className="flex items-center gap-2 text-primary">
+                      <Sparkles size={16} />
+                      <span className="text-[11px] font-black uppercase tracking-wider">Dica de Design (Canva)</span>
+                    </div>
+                    <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                      Para que o banner fique perfeito e sem cortes, utilize estas dimensões:
+                      <br />• <span className="font-bold text-on-surface">Desktop:</span> 1920 x 450 px
+                      <br />• <span className="font-bold text-on-surface">Mobile:</span> 1080 x 300 px
+                      <br /><span className="text-primary/80">Dica: Mantenha as informações importantes no centro.</span>
+                    </p>
+                  </div>
+
                   <form onSubmit={handleCreateBanner} className="space-y-4">
                     <div className="space-y-2">
-                      <label className="text-sm font-bold text-on-surface ml-1">Título do Banner</label>
+                      <label className="text-sm font-bold text-on-surface ml-1">Título do Banner (Opcional)</label>
                       <input 
                         type="text" 
-                        required
                         value={newBanner.title}
                         onChange={(e) => setNewBanner({...newBanner, title: e.target.value})}
                         placeholder="Ex: Oferta de Natal 50% OFF"
                         className="w-full bg-surface-container-high border border-white/10 rounded-2xl px-6 py-4 text-on-surface focus:ring-2 focus:ring-primary outline-none"
                       />
+                      <p className="text-[10px] text-on-surface-variant/60 ml-2 italic">Dica: Se a imagem já tiver texto, podes deixar este campo vazio.</p>
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-on-surface ml-1">Subtítulo (Opcional)</label>
@@ -2559,7 +2894,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-bold text-on-surface ml-1">Texto do Botão</label>
+                        <label className="text-sm font-bold text-on-surface ml-1">Texto do Botão (Opcional)</label>
                         <input 
                           type="text" 
                           value={newBanner.button_text}
@@ -2569,7 +2904,7 @@ export default function AdminDashboard() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-bold text-on-surface ml-1">Link do Botão</label>
+                        <label className="text-sm font-bold text-on-surface ml-1">Link do Botão (Opcional)</label>
                         <input 
                           type="text" 
                           value={newBanner.button_link}
@@ -2579,6 +2914,9 @@ export default function AdminDashboard() {
                         />
                       </div>
                     </div>
+                    {(newBanner.button_text || newBanner.button_link) && !(newBanner.button_text && newBanner.button_link) && (
+                      <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest ml-2">⚠️ O botão só aparecerá se preencheres ambos os campos (Texto e Link).</p>
+                    )}
                     
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-on-surface ml-1">Imagem do Banner</label>
@@ -2605,8 +2943,8 @@ export default function AdminDashboard() {
                       disabled={isUploadingBanner}
                       className="w-full bg-primary text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-primary-dim transition-all disabled:opacity-50"
                     >
-                      {isUploadingBanner ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
-                      Carregar Banner
+                      {isUploadingBanner ? <Loader2 size={18} className="animate-spin" /> : editingBanner ? <Save size={18} /> : <Plus size={18} />}
+                      {editingBanner ? 'Guardar Alterações' : 'Carregar Banner'}
                     </button>
                   </form>
                 </div>
@@ -2627,7 +2965,22 @@ export default function AdminDashboard() {
                               <p className="text-xs text-on-surface-variant">{banner.subtitle}</p>
                             </div>
                             <div className="flex gap-2">
-                              {/* Future: Edit button */}
+                              <button 
+                                onClick={() => {
+                                  setEditingBanner(banner);
+                                  setNewBanner({
+                                    title: banner.title,
+                                    subtitle: banner.subtitle || '',
+                                    button_text: banner.button_text || '',
+                                    button_link: banner.button_link || '',
+                                    image_url: banner.image_url
+                                  });
+                                }}
+                                className="p-2 bg-primary/10 text-primary rounded-xl hover:bg-primary hover:text-white transition-all"
+                                title="Editar"
+                              >
+                                <Pencil size={16} />
+                              </button>
                               <button 
                                 onClick={() => handleDeleteBanner(banner.id)}
                                 className="p-2 bg-error/10 text-error rounded-xl hover:bg-error hover:text-white transition-all"
@@ -5065,6 +5418,216 @@ export default function AdminDashboard() {
                 </div>
               </div>
             </motion.div>
+          )}
+          {isAddingAd && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsAddingAd(false)}
+                className="absolute inset-0 bg-black/80 backdrop-blur-md"
+              />
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className="relative w-full max-w-xl bg-surface-container-lowest rounded-[2.5rem] border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              >
+                <div className="p-8 border-b border-white/5 flex items-center justify-between bg-surface-container-low">
+                  <div>
+                    <h3 className="text-xl font-headline font-black text-white uppercase tracking-tight">
+                      {editingAd ? 'Editar Anúncio' : 'Novo Anúncio / Parceria'}
+                    </h3>
+                    <p className="text-on-surface-variant text-xs mt-1">Configure o seu banner de afiliado ou bloco AdSense.</p>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setIsAddingAd(false);
+                      setEditingAd(null);
+                      setAdForm({
+                        title: '',
+                        type: 'banner',
+                        content: '',
+                        link_url: '',
+                        placement: 'sidebar',
+                        page_target: 'all',
+                        is_active: true
+                      });
+                    }}
+                    className="p-2 hover:bg-white/5 rounded-xl transition-colors text-on-surface-variant"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleCreateAd} className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar">
+                    <div className="space-y-4">
+                      {adForm.type === 'banner' && (
+                        <div className="space-y-4 p-6 bg-surface-container-high rounded-3xl border border-white/5">
+                          <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest block">Imagem do Banner</label>
+                          <div 
+                            onClick={() => document.getElementById('ad-image')?.click()}
+                            className="cursor-pointer group relative aspect-video rounded-2xl bg-black/20 border-2 border-dashed border-white/10 hover:border-primary/50 transition-all flex flex-col items-center justify-center gap-2 overflow-hidden"
+                          >
+                            {adFilePreview ? (
+                              <>
+                                <img src={adFilePreview} alt="Preview" className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                  <span className="text-[10px] font-black text-white uppercase tracking-widest">Mudar Imagem</span>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                  <ImageIconLucide size={24} className="text-on-surface-variant" />
+                                </div>
+                                <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest text-center px-4">
+                                  Clica para carregar imagem
+                                </span>
+                              </>
+                            )}
+                            <input 
+                              id="ad-image"
+                              type="file"
+                              accept="image/*"
+                              onChange={handleAdFileChange}
+                              className="hidden"
+                            />
+                          </div>
+                          {adFile && (
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 rounded-full border border-green-500/20">
+                              <CheckCircle size={14} className="text-green-500" />
+                              <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest truncate">{adFile.name}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest ml-2">Título do Anúncio</label>
+                        <input 
+                          type="text"
+                          required
+                          value={adForm.title}
+                          onChange={(e) => setAdForm({...adForm, title: e.target.value})}
+                          placeholder="Ex: Banner Nike Afiliado"
+                          className="w-full bg-surface-container-high border border-white/5 rounded-2xl py-3 px-4 text-sm text-white focus:ring-2 focus:ring-primary/20 outline-none"
+                        />
+                      </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest ml-2">Tipo de Anúncio</label>
+                        <select 
+                          value={adForm.type}
+                          onChange={(e) => setAdForm({...adForm, type: e.target.value})}
+                          className="w-full bg-surface-container-high border border-white/5 rounded-2xl py-3 px-4 text-sm text-white focus:ring-2 focus:ring-primary/20 outline-none"
+                        >
+                          <option value="banner">Banner (Imagem)</option>
+                          <option value="adsense">Código AdSense / HTML</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest ml-2">Posicionamento</label>
+                        <select 
+                          value={adForm.placement}
+                          onChange={(e) => setAdForm({...adForm, placement: e.target.value})}
+                          className="w-full bg-surface-container-high border border-white/5 rounded-2xl py-3 px-4 text-sm text-white focus:ring-2 focus:ring-primary/20 outline-none"
+                        >
+                          <option value="sidebar">Barra Lateral</option>
+                          <option value="top">Topo da Página</option>
+                          <option value="bottom">Rodapé</option>
+                          <option value="popup">Popup de Saída</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest ml-2">Página onde o anúncio deve aparecer</label>
+                      <select 
+                        value={adForm.page_target}
+                        onChange={(e) => setAdForm({...adForm, page_target: e.target.value})}
+                        className="w-full bg-surface-container-high border border-white/5 rounded-2xl py-3 px-4 text-sm text-white focus:ring-2 focus:ring-primary/20 outline-none"
+                      >
+                        <option value="all">Todas as Páginas</option>
+                        <option value="home">Página Inicial</option>
+                        <option value="books">Ebooks (Página de Livros)</option>
+                        <option value="music">Músicas (Página de Música)</option>
+                        <option value="audiobooks">Audiobooks (Página de Áudio)</option>
+                        <option value="digital">Produtos Digitais (Templates/Imagens)</option>
+                        <option value="product">Página Individual de Produto</option>
+                      </select>
+                    </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest ml-2">
+                          {adForm.type === 'banner' 
+                            ? (adFile ? 'URL da Imagem (Opcional - Ficheiro selecionado)' : 'URL da Imagem (Ou faz upload acima)') 
+                            : adForm.type === 'adsense' ? 'Código HTML/JS' : 'URL de Destino'}
+                        </label>
+                        {adForm.type === 'adsense' ? (
+                          <textarea 
+                            required
+                            value={adForm.content}
+                            onChange={(e) => setAdForm({...adForm, content: e.target.value})}
+                            className="w-full bg-surface-container-high border border-white/5 rounded-2xl py-3 px-4 text-sm text-on-surface focus:ring-2 focus:ring-primary/20 outline-none h-32 font-mono"
+                          />
+                        ) : (
+                          <input 
+                            type="url"
+                            required={adForm.type === 'banner' ? !adFile : true}
+                            value={adForm.content}
+                            onChange={(e) => setAdForm({...adForm, content: e.target.value})}
+                            className="w-full bg-surface-container-high border border-white/5 rounded-2xl py-3 px-4 text-sm text-white focus:ring-2 focus:ring-primary/20 outline-none"
+                          />
+                        )}
+                      </div>
+
+                    {adForm.type === 'banner' && (
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest ml-2">Link de Redirecionamento</label>
+                        <input 
+                          type="url"
+                          value={adForm.link_url}
+                          onChange={(e) => setAdForm({...adForm, link_url: e.target.value})}
+                          className="w-full bg-surface-container-high border border-white/5 rounded-2xl py-3 px-4 text-sm text-white focus:ring-2 focus:ring-primary/20 outline-none"
+                        />
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
+                      <input 
+                        type="checkbox"
+                        id="ad_active"
+                        checked={adForm.is_active}
+                        onChange={(e) => setAdForm({...adForm, is_active: e.target.checked})}
+                        className="w-4 h-4 accent-primary"
+                      />
+                      <label htmlFor="ad_active" className="text-sm font-bold text-white">Anúncio Ativado</label>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex gap-4">
+                    <button 
+                      type="button"
+                      onClick={() => setIsAddingAd(false)}
+                      className="flex-1 py-3 px-8 rounded-2xl border border-white/10 text-on-surface font-bold text-xs uppercase tracking-widest hover:bg-white/5 transition-all"
+                    >
+                      Descartar
+                    </button>
+                    <button 
+                      type="submit"
+                      disabled={isUploadingAd}
+                      className="flex-1 py-3 px-8 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-primary-dim transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+                    >
+                      {isUploadingAd ? <Loader2 size={16} className="animate-spin" /> : editingAd ? <Save size={16} /> : <ShieldCheck size={16} />}
+                      {editingAd ? 'Guardar Alterações' : 'Publicar Anúncio'}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
           )}
         </AnimatePresence>
       </main>

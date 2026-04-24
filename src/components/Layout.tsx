@@ -25,7 +25,7 @@ export default function Layout({ children, logoUrl }: LayoutProps) {
               {logoUrl ? (
                 <img src={logoUrl} alt="Memoo" className="h-8 w-auto object-contain" />
               ) : (
-                <>Memoo<span className="text-primary"> Livro Alto</span></>
+                <>Memoo<span className="text-primary"> Livros</span></>
               )}
             </Link>
             <p className="text-on-surface-variant text-sm leading-relaxed">

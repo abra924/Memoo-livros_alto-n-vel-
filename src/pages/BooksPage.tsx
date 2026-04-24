@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { BookOpen, Search, Flame, Zap, Brain, DollarSign, Filter, ChevronDown, BookMarked, History, Sparkles, Sword, Heart, Ghost, Activity, Compass, Users as UsersIcon, Briefcase, PenTool, Utensils, Plane, Microscope } from 'lucide-react';
+import AdSpace from '../components/AdSpace';
 import DiscoverySection from '../components/DiscoverySection';
 import Newsletter from '../components/Newsletter';
 import { supabase } from '../supabase';
@@ -110,6 +111,7 @@ export default function BooksPage() {
           >
             Milhares de ebooks de 21 categorias diferentes para transformar a sua mente.
           </motion.p>
+          <AdSpace placement="top" page="books" />
         </div>
         
         {/* Search & Categories Bar */}

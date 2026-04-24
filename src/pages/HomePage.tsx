@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { Flame, Music, Package } from 'lucide-react';
+import { Flame, Music, Package, Megaphone, X } from 'lucide-react';
 import Hero from '../components/Hero';
+import AdSpace from '../components/AdSpace';
 import DiscoverySection from '../components/DiscoverySection';
 import Benefits from '../components/Benefits';
 import Newsletter from '../components/Newsletter';
@@ -16,6 +17,8 @@ export default function HomePage() {
   const [physicalProducts, setPhysicalProducts] = useState<any[]>([]);
   const [featuredProduct, setFeaturedProduct] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showExitPopup, setShowExitPopup] = useState(false);
+  const [exitAd, setExitAd] = useState<any>(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -45,7 +48,33 @@ export default function HomePage() {
       setLoading(false);
     };
 
+    const fetchExitAd = async () => {
+      try {
+        const { data } = await supabase
+          .from('ads')
+          .select('*')
+          .eq('placement', 'popup')
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle();
+        if (data) setExitAd(data);
+      } catch (err) {
+        console.warn('Erro ao carregar anúncio de saída:', err);
+      }
+    };
+
     fetchProducts();
+    fetchExitAd();
+
+    const handleMouseOut = (e: MouseEvent) => {
+      if (e.clientY <= 0 && !sessionStorage.getItem('exit-popup-shown')) {
+        setShowExitPopup(true);
+        sessionStorage.setItem('exit-popup-shown', 'true');
+      }
+    };
+
+    window.addEventListener('mouseout', handleMouseOut);
+    return () => window.removeEventListener('mouseout', handleMouseOut);
   }, []);
 
   return (
@@ -53,6 +82,10 @@ export default function HomePage() {
       <Hero />
       
       <div className="space-y-12">
+        <div className="px-6 lg:px-12 max-w-7xl mx-auto -mt-12 relative z-20">
+          <AdSpace placement="top" page="home" />
+        </div>
+        
         {loading ? (
           <div className="flex justify-center py-24">
             <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -142,7 +175,58 @@ export default function HomePage() {
       </div>
 
       <Benefits />
+      <div className="px-6 lg:px-12 max-w-7xl mx-auto py-12">
+        <AdSpace placement="bottom" page="home" />
+      </div>
       <Newsletter />
+
+      <AnimatePresence>
+        {showExitPopup && exitAd && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowExitPopup(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-surface-container-lowest rounded-[2.5rem] border border-white/10 shadow-2xl p-8 overflow-hidden"
+            >
+              <button 
+                onClick={() => setShowExitPopup(false)}
+                className="absolute top-6 right-6 p-2 text-on-surface-variant hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+
+              <div className="text-center space-y-6">
+                <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mx-auto">
+                  <Megaphone size={32} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-headline font-black text-white uppercase tracking-tight">Espera! Temos algo para ti</h3>
+                  <p className="text-on-surface-variant mt-2">Visita o nosso parceiro ou aproveita esta oferta exclusiva antes de ires.</p>
+                </div>
+                
+                <div className="rounded-2xl overflow-hidden border border-white/5">
+                  <AdSpace placement="popup" page="home" />
+                </div>
+
+                <button 
+                  onClick={() => setShowExitPopup(false)}
+                  className="w-full py-4 text-on-surface-variant font-bold text-xs uppercase tracking-widest hover:text-white transition-colors"
+                >
+                  Continuar a navegar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

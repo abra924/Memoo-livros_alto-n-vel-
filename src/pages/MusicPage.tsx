@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Music, Search, Disc, Play, Volume2, Mic2, Guitar, Radio, Star, Heart, Flame, Headphones, Zap } from 'lucide-react';
+import AdSpace from '../components/AdSpace';
 import DiscoverySection from '../components/DiscoverySection';
 import Newsletter from '../components/Newsletter';
 import { supabase } from '../supabase';
@@ -144,6 +145,7 @@ export default function MusicPage() {
             ))}
           </div>
         </motion.div>
+        <AdSpace placement="top" page="music" />
       </section>
 
       {loading ? (

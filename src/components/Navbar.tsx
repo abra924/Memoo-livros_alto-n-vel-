@@ -262,7 +262,7 @@ export default function Navbar({ logoUrl }: NavbarProps) {
         {logoUrl ? (
           <img src={logoUrl} alt="Memoo" className="h-8 lg:h-10 w-auto object-contain" />
         ) : (
-          <>Memoo<span className="text-primary truncate"> Livro Alto</span></>
+          <>Memoo<span className="text-primary truncate"> Livros</span></>
         )}
       </Link>
       

@@ -29,6 +29,7 @@ import {
 import PayPalButton from '../components/PayPalButton';
 import { formatPrice, cn } from '../lib/utils';
 import { useCart } from '../contexts/CartContext';
+import AdSpace from '../components/AdSpace';
 
 export default function ProductPage() {
   const { id } = useParams();
@@ -392,6 +393,7 @@ export default function ProductPage() {
                 O teu pagamento é processado de forma encriptada e segura. Acesso imediato após confirmação.
               </p>
             </div>
+            <AdSpace placement="sidebar" page="product" />
           </div>
 
           {/* Right: Sales Copy & Checkout */}

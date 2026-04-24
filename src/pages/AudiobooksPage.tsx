@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { BookOpen, Search, Headphones, Zap, Clock, Mic2, MessageSquare, Users, Ghost, History, Brain, Briefcase, GraduationCap, Star, Sparkles } from 'lucide-react';
+import AdSpace from '../components/AdSpace';
 import DiscoverySection from '../components/DiscoverySection';
 import Newsletter from '../components/Newsletter';
 import { supabase } from '../supabase';
@@ -95,6 +96,7 @@ export default function AudiobooksPage() {
         >
           Aprenda enquanto caminha, viaja ou relaxa com a nossa seleção de audiobooks.
         </motion.p>
+        <AdSpace placement="top" page="audiobooks" />
         
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}

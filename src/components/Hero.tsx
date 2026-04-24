@@ -197,7 +197,7 @@ export default function Hero() {
   }
 
   return (
-    <section className="relative h-[80vh] lg:h-[90vh] w-full overflow-hidden group">
+    <section className="relative h-[300px] lg:h-[450px] w-full overflow-hidden group bg-black">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentSlide}
@@ -211,39 +211,47 @@ export default function Hero() {
           <div className="absolute inset-0 z-0">
             <img 
               src={banners[currentSlide].image_url} 
-              alt={banners[currentSlide].title}
-              className="w-full h-full object-cover"
+              alt={banners[currentSlide].title || "Banner"}
+              className="w-full h-full object-cover object-center"
               referrerPolicy="no-referrer"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+            {(banners[currentSlide].title || banners[currentSlide].subtitle) && (
+              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
+            )}
           </div>
 
           {/* Banner Content */}
-          <div className="relative z-10 h-full max-w-7xl mx-auto px-6 lg:px-12 flex flex-col justify-center items-start space-y-6">
+          <div className="relative z-10 h-full max-w-7xl mx-auto px-6 lg:px-12 flex flex-col justify-center items-start space-y-4">
             <motion.div
-              initial={{ x: -50, opacity: 0 }}
+              initial={{ x: -20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.6 }}
-              className="space-y-4 max-w-2xl"
+              className="space-y-3 max-w-2xl"
             >
-              <span className="inline-block px-4 py-1 rounded-full bg-primary/20 text-primary text-xs font-black uppercase tracking-widest border border-primary/30 backdrop-blur-md">
-                Destaque Memoo
-              </span>
-              <h1 className="text-5xl lg:text-8xl font-headline font-black text-white leading-[1] tracking-tighter uppercase italic">
-                {banners[currentSlide].title}
-              </h1>
-              <p className="text-lg lg:text-2xl text-white/80 font-body max-w-xl leading-relaxed">
-                {banners[currentSlide].subtitle}
-              </p>
+              {banners[currentSlide].title && (
+                <>
+                  <span className="inline-block px-3 py-0.5 rounded-full bg-primary/20 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/30 backdrop-blur-md">
+                    Destaque Memoo
+                  </span>
+                  <h1 className="text-3xl lg:text-5xl font-headline font-black text-white leading-[1] tracking-tighter uppercase italic">
+                    {banners[currentSlide].title}
+                  </h1>
+                </>
+              )}
+              {banners[currentSlide].subtitle && (
+                <p className="text-sm lg:text-lg text-white/80 font-body max-w-xl leading-relaxed">
+                  {banners[currentSlide].subtitle}
+                </p>
+              )}
               
               {(banners[currentSlide].button_text && banners[currentSlide].button_link) && (
-                <div className="pt-6">
+                <div className="pt-2">
                   <Link 
                     to={banners[currentSlide].button_link}
-                    className="inline-flex items-center gap-3 bg-white text-black px-10 py-5 rounded-full font-black text-lg uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-2xl hover:scale-105 active:scale-95"
+                    className="inline-flex items-center gap-2 bg-white text-black px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-xl hover:scale-105 active:scale-95"
                   >
                     {banners[currentSlide].button_text}
-                    <ArrowRight size={24} />
+                    <ArrowRight size={16} />
                   </Link>
                 </div>
               )}

@@ -281,7 +281,7 @@ export default function App() {
           className="text-2xl font-extrabold text-white tracking-tighter font-headline"
           translate="no"
         >
-          Memoo<span className="text-primary"> Livro Alto</span>
+          Memoo<span className="text-primary"> Livros</span>
         </motion.div>
       </div>
     );

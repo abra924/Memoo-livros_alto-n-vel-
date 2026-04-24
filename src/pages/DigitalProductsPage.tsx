@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { Music, Layout as LayoutIcon, Image as ImageIcon, BookOpen } from 'lucide-react';
+import AdSpace from '../components/AdSpace';
 import DiscoverySection from '../components/DiscoverySection';
 import Newsletter from '../components/Newsletter';
 import { supabase } from '../supabase';
@@ -88,6 +89,7 @@ export default function DigitalProductsPage() {
         >
           Templates, músicas e imagens de alta qualidade para os seus projetos digitais.
         </motion.p>
+        <AdSpace placement="top" page="digital" />
       </section>
 
       {loading ? (
