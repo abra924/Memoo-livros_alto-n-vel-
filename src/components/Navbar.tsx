@@ -141,7 +141,6 @@ export default function Navbar({ logoUrl }: NavbarProps) {
         }
 
         if (data?.url) {
-          console.log("Iniciando login OAuth com redirecionamento para:", `${window.location.origin}/auth-callback`);
           const width = 600;
           const height = 700;
           const left = window.screenX + (window.outerWidth - width) / 2;
