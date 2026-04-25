@@ -109,7 +109,8 @@ create table products (
   description text,
   type text, -- 'ebook', 'music', 'image'
   cover_url text,
-  file_url text
+  file_url text,
+  additional_images text[] default '{}'
 );
 
 alter table products enable row level security;

@@ -24,7 +24,10 @@ import {
   Globe,
   QrCode,
   MessageCircle,
-  Heart
+  Heart,
+  Clock,
+  Sparkles,
+  X
 } from 'lucide-react';
 import PayPalButton from '../components/PayPalButton';
 import { formatPrice, cn } from '../lib/utils';
@@ -47,6 +50,9 @@ export default function ProductPage() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isWishlisting, setIsWishlisting] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isCarouselPaused, setIsCarouselPaused] = useState(false);
+  const [isImageFullscreen, setIsImageFullscreen] = useState(false);
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
   const [showProtectionMsg, setShowProtectionMsg] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -66,6 +72,27 @@ export default function ProductPage() {
   };
 
   const isInCart = cart.some(item => item.id === id);
+
+  const getAllImages = () => {
+    if (!product) return [];
+    const images = [product.cover_url];
+    if (product.additional_images && Array.isArray(product.additional_images)) {
+      images.push(...product.additional_images);
+    }
+    return images.filter(img => !!img);
+  };
+
+  const productImages = getAllImages();
+
+  useEffect(() => {
+    if (productImages.length <= 1 || isCarouselPaused || isImageFullscreen) return;
+
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % productImages.length);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [productImages.length, isCarouselPaused, isImageFullscreen]);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -374,15 +401,102 @@ export default function ProductPage() {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="aspect-[3/4] bg-surface-container-low rounded-[2.5rem] border border-white/10 overflow-hidden shadow-2xl shadow-black/50 group"
+              className="relative aspect-[3/4] bg-surface-container-low rounded-[2.5rem] border border-white/10 overflow-hidden shadow-2xl shadow-black/50 group"
+              onMouseEnter={() => setIsCarouselPaused(true)}
+              onMouseLeave={() => setIsCarouselPaused(false)}
             >
-              <img 
-                src={product.cover_url} 
-                alt={product.title} 
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                referrerPolicy="no-referrer"
-              />
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentImageIndex}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.7 }}
+                  className="w-full h-full relative"
+                >
+                  {/* Blurred Background */}
+                  <div className="absolute inset-0 overflow-hidden">
+                    <img 
+                      src={productImages[currentImageIndex]} 
+                      alt=""
+                      className="w-full h-full object-cover blur-2xl opacity-30 scale-110"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  {/* Main Image Contained */}
+                  <img 
+                    src={productImages[currentImageIndex]} 
+                    alt={`${product.title} - Imagem ${currentImageIndex + 1}`}
+                    className="relative w-full h-full object-contain cursor-zoom-in"
+                    onDoubleClick={() => setIsImageFullscreen(true)}
+                    referrerPolicy="no-referrer"
+                  />
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Slide Controls Overlay */}
+              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
+                {productImages.map((_, idx) => (
+                  <button 
+                    key={idx}
+                    onClick={() => setCurrentImageIndex(idx)}
+                    className={cn(
+                      "h-1.5 rounded-full transition-all duration-500",
+                      currentImageIndex === idx ? "w-8 bg-primary" : "w-2 bg-white/30 hover:bg-white/50"
+                    )}
+                  />
+                ))}
+              </div>
+
+              {/* Pause/Play & Zoom Buttons */}
+              <div className="absolute top-6 right-6 flex flex-col gap-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  onClick={() => setIsImageFullscreen(true)}
+                  className="p-3 bg-black/60 backdrop-blur-md text-white rounded-2xl hover:bg-primary transition-all shadow-xl"
+                  title="Ampliar Imagem"
+                >
+                  <Plus size={20} />
+                </button>
+                {productImages.length > 1 && (
+                  <button 
+                    onClick={() => setIsCarouselPaused(!isCarouselPaused)}
+                    className="p-3 bg-black/60 backdrop-blur-md text-white rounded-2xl hover:bg-primary transition-all shadow-xl"
+                  >
+                    {isCarouselPaused ? <Play size={20} fill="currentColor" /> : <Clock size={20} />}
+                  </button>
+                )}
+              </div>
+
+              {productImages.length > 1 && !isCarouselPaused && (
+                <div className="absolute top-0 left-0 w-full h-1 bg-white/10 z-30">
+                  <motion.div 
+                    key={currentImageIndex}
+                    initial={{ width: 0 }}
+                    animate={{ width: '100%' }}
+                    transition={{ duration: 4, ease: "linear" }}
+                    className="h-full bg-primary"
+                  />
+                </div>
+              )}
             </motion.div>
+
+            {/* Thumbnail Selection */}
+            {productImages.length > 1 && (
+              <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+                {productImages.map((img, idx) => (
+                  <button 
+                    key={idx}
+                    onClick={() => setCurrentImageIndex(idx)}
+                    className={cn(
+                      "relative w-20 aspect-square rounded-xl overflow-hidden border-2 transition-all shrink-0",
+                      currentImageIndex === idx ? "border-primary scale-105 shadow-lg shadow-primary/20" : "border-white/5 opacity-50 hover:opacity-100"
+                    )}
+                  >
+                    <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="bg-surface-container-low p-6 rounded-3xl border border-white/5 space-y-4">
               <div className="flex items-center gap-3 text-secondary">
@@ -1037,6 +1151,86 @@ export default function ProductPage() {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+      {/* Newsletter Section */}
+      <div className="max-w-7xl mx-auto px-8 mt-24">
+        <div className="bg-primary/5 border border-primary/20 p-12 rounded-[3.5rem] relative overflow-hidden text-center space-y-8">
+          <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+            <Sparkles className="absolute top-10 left-10 text-primary w-20 h-20 blur-sm" />
+            <Sparkles className="absolute bottom-10 right-10 text-primary w-32 h-32 blur-md" />
+          </div>
+          <div className="max-w-xl mx-auto space-y-6">
+            <h2 className="text-4xl font-headline font-black text-white leading-tight">Gostas deste tipo de conteúdo?</h2>
+            <p className="text-on-surface-variant font-medium">Subscreve para receberes novos lançamentos e ofertas exclusivas diretamente no teu email.</p>
+            <div className="flex bg-surface-container-low p-2 rounded-2xl border border-white/5">
+              <input 
+                type="email" 
+                placeholder="O teu melhor email..." 
+                className="flex-1 bg-transparent px-6 border-none outline-none text-white font-bold placeholder:text-on-surface-variant/50"
+              />
+              <button className="bg-primary text-white px-8 py-4 rounded-xl font-black uppercase tracking-widest hover:bg-primary-dim transition-all">Subscrever</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Fullscreen Image Modal */}
+      <AnimatePresence>
+        {isImageFullscreen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 lg:p-12"
+          >
+            <button 
+              onClick={() => setIsImageFullscreen(false)}
+              className="absolute top-8 right-8 p-4 bg-white/10 hover:bg-white/20 rounded-full text-white backdrop-blur-md transition-all z-[1001]"
+            >
+              <X size={32} />
+            </button>
+
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full h-full flex items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img 
+                src={productImages[currentImageIndex]} 
+                alt={product.title}
+                className="max-w-full max-h-full object-contain shadow-2xl rounded-2xl"
+                referrerPolicy="no-referrer"
+              />
+
+              {/* Navigation in Fullscreen */}
+              {productImages.length > 1 && (
+                <>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex((prev) => (prev - 1 + productImages.length) % productImages.length); }}
+                    className="absolute left-4 lg:left-12 p-6 bg-white/5 hover:bg-white/10 rounded-full text-white transition-all border border-white/10 group"
+                  >
+                    <ArrowLeft size={32} className="group-hover:-translate-x-2 transition-transform" />
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); setCurrentImageIndex((prev) => (prev + 1) % productImages.length); }}
+                    className="absolute right-4 lg:right-12 p-6 bg-white/5 hover:bg-white/10 rounded-full text-white transition-all border border-white/10 group"
+                  >
+                    <ArrowRight size={32} className="group-hover:translate-x-2 transition-transform" />
+                  </button>
+                </>
+              )}
+
+              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-black/40 backdrop-blur-md px-8 py-4 rounded-3xl border border-white/10">
+                <div className="flex flex-col text-center">
+                  <span className="text-[10px] text-primary font-black uppercase tracking-widest">{currentImageIndex + 1} / {productImages.length}</span>
+                  <span className="text-white font-bold text-sm truncate max-w-[200px]">{product.title}</span>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

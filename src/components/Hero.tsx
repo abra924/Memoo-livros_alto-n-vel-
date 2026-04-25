@@ -208,15 +208,25 @@ export default function Hero() {
           className="absolute inset-0"
         >
           {/* Banner Background */}
-          <div className="absolute inset-0 z-0">
+          <div className="absolute inset-0 z-0 bg-black">
+            {/* Blurred background fallback */}
+            <div className="absolute inset-0 overflow-hidden">
+              <img 
+                src={banners[currentSlide].image_url} 
+                alt=""
+                className="w-full h-full object-cover blur-3xl opacity-40 scale-110"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            {/* Main image contained to show fully */}
             <img 
               src={banners[currentSlide].image_url} 
               alt={banners[currentSlide].title || "Banner"}
-              className="w-full h-full object-cover object-center"
+              className="relative w-full h-full object-contain"
               referrerPolicy="no-referrer"
             />
             {(banners[currentSlide].title || banners[currentSlide].subtitle) && (
-              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/20 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/20 to-transparent" />
             )}
           </div>
 

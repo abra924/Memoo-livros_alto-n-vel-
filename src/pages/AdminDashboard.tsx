@@ -195,6 +195,7 @@ export default function AdminDashboard() {
   const [demoVideoFile, setDemoVideoFile] = useState<File | null>(null);
   const [demoAudioFile, setDemoAudioFile] = useState<File | null>(null);
   const [demoEbookFile, setDemoEbookFile] = useState<File | null>(null);
+  const [additionalImageFiles, setAdditionalImageFiles] = useState<(File | null)[]>([null, null, null]);
   const [coverPreview, setCoverPreview] = useState<string>('');
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
 
@@ -1044,6 +1045,31 @@ export default function AdminDashboard() {
         demoEbookUrl = publicUrl;
       }
 
+      let additionalImages: string[] = editingProduct?.additional_images || [];
+      if (contentType === 'image') {
+        const uploadedUrls = [...additionalImages];
+        for (let i = 0; i < additionalImageFiles.length; i++) {
+          const addFile = additionalImageFiles[i];
+          if (addFile) {
+            const addExt = addFile.name.split('.').pop();
+            const addPath = `images/extra_${Date.now()}_${i}_${Math.random().toString(36).substring(7)}.${addExt}`;
+            
+            const { error: addErr } = await supabase.storage
+              .from('content')
+              .upload(addPath, addFile);
+            
+            if (addErr) throw addErr;
+            
+            const { data: { publicUrl: addUrl } } = supabase.storage
+              .from('content')
+              .getPublicUrl(addPath);
+            
+            uploadedUrls[i] = addUrl;
+          }
+        }
+        additionalImages = uploadedUrls.filter(url => !!url);
+      }
+
       let fileUrl = editingProduct?.file_url || '';
       if (file) {
         const fileExt = file.name.split('.').pop();
@@ -1080,7 +1106,8 @@ export default function AdminDashboard() {
         file_url: fileUrl,
         demo_video_url: demoVideoUrl,
         demo_audio_url: demoAudioUrl,
-        demo_ebook_url: demoEbookUrl
+        demo_ebook_url: demoEbookUrl,
+        additional_images: additionalImages
       };
 
       if (editingProduct) {
@@ -1108,6 +1135,7 @@ export default function AdminDashboard() {
       setDemoVideoFile(null);
       setDemoAudioFile(null);
       setDemoEbookFile(null);
+      setAdditionalImageFiles([null, null, null]);
       setCoverPreview('');
       setEditingProduct(null);
     } catch (error: any) {
@@ -3549,6 +3577,52 @@ export default function AdminDashboard() {
                         )}
                       </div>
 
+                    <div className="space-y-4">
+                      <label className="text-sm font-bold text-white px-2 uppercase tracking-widest flex items-center gap-2">
+                        <ImageIcon size={18} className="text-primary" />
+                        Ficheiros de Imagem Adicionais (Até 4 no total)
+                      </label>
+                      <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl flex items-start gap-4">
+                        <Sparkles className="text-primary shrink-0 mt-1" size={18} />
+                        <div className="space-y-1">
+                          <p className="text-xs font-bold text-white uppercase tracking-tight">Dica para o Slideshow</p>
+                          <p className="text-[10px] text-on-surface-variant leading-relaxed">
+                            Para o melhor visual no slideshow automático, usa imagens com a mesma proporção (ex: 4:5 ou 1:1). 
+                            O sistema irá garantir que toda a imagem seja visível.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {[0, 1, 2].map((idx) => (
+                          <div key={idx} className="space-y-2">
+                            <label className="text-[10px] font-black text-on-surface-variant uppercase tracking-tighter ml-2">Imagem {idx + 2}</label>
+                            <input 
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const newFiles = [...additionalImageFiles];
+                                newFiles[idx] = e.target.files?.[0] || null;
+                                setAdditionalImageFiles(newFiles);
+                              }}
+                              className="w-full bg-surface-container-high border border-white/5 rounded-2xl py-2 px-4 text-white text-[10px] file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-[10px] file:font-bold file:bg-primary/10 file:text-primary transition-all"
+                            />
+                            {additionalImageFiles[idx] && (
+                              <div className="flex items-center gap-1 px-2 py-1 bg-green-500/10 border border-green-500/20 rounded-lg">
+                                <CheckCircle className="text-green-500" size={10} />
+                                <span className="text-[8px] text-green-500 font-bold truncate">{additionalImageFiles[idx]?.name}</span>
+                              </div>
+                            )}
+                            {editingProduct?.additional_images?.[idx] && !additionalImageFiles[idx] && (
+                              <div className="flex items-center gap-1 px-2 py-1 bg-primary/10 border border-primary/20 rounded-lg">
+                                <CheckCircle className="text-primary" size={10} />
+                                <span className="text-[8px] text-primary font-bold truncate">Imagem Guardada</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-white px-2">
                         Ficheiro do Produto {editingProduct ? '(Opcional se não quiseres alterar)' : '(Obrigatório)'} ({contentType === 'ebook' ? 'PDF/EPUB' : (contentType === 'music' || contentType === 'audiobook') ? 'MP3/WAV' : contentType === 'video' ? 'MP4/MOV' : 'ZIP/IMG'})
@@ -3737,6 +3811,7 @@ export default function AdminDashboard() {
                                       description: product.description || ''
                                     });
                                     setCoverPreview(product.cover_url || '');
+                                    setAdditionalImageFiles([null, null, null]);
                                     mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
                                   }}
                                   className="p-3 text-secondary hover:bg-secondary/10 rounded-xl transition-all hover:scale-110 active:scale-95 bg-surface-container-high lg:bg-transparent"
