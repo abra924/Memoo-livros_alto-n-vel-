@@ -22,6 +22,12 @@ export default function Navbar({ logoUrl }: NavbarProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [profile, setProfile] = useState<{ display_name: string | null; photo_url: string | null }>({ display_name: null, photo_url: null });
   const location = useLocation();
@@ -104,24 +110,68 @@ export default function Navbar({ logoUrl }: NavbarProps) {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  const handleLogin = async (email?: any) => {
+  const handleLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setAuthError(null);
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      setIsAuthModalOpen(false);
+      resetAuthFields();
+    } catch (error: any) {
+      console.error("Login failed:", error);
+      setAuthError(error.message || 'Ocorreu um erro ao iniciar sessão.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setIsLoading(true);
+    try {
+      const { error, data } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: displayName,
+          },
+          emailRedirectTo: `${window.location.origin}/auth-callback`,
+        }
+      });
+      if (error) throw error;
+      
+      if (data.session) {
+        setIsAuthModalOpen(false);
+        resetAuthFields();
+      } else {
+        alert('Verifica o teu email para confirmar a conta!');
+        setAuthMode('login');
+      }
+    } catch (error: any) {
+      console.error("Signup failed:", error);
+      setAuthError(error.message || 'Ocorreu um erro ao criar conta.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetAuthFields = () => {
+    setEmail('');
+    setPassword('');
+    setDisplayName('');
+    setAuthError(null);
+  };
+
+  const handleGoogleLogin = async () => {
     setAuthError(null);
     try {
-      const targetEmail = typeof email === 'string' ? email : undefined;
-
-      if (targetEmail) {
-        const { error } = await supabase.auth.signInWithOtp({
-          email: targetEmail,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth-callback`,
-          }
-        });
-        if (error) throw error;
-        alert('Verifica o teu email! Enviamos um link de acesso.');
-      } else {
-        // Engenharia Premium: Abrir o Google DIRETAMENTE no Pop-up
-        // No AI Studio, abrir rotas do container em popups falha.
-        // Abrimos o URL da Google diretamente para autorização máxima.
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
@@ -134,11 +184,7 @@ export default function Navbar({ logoUrl }: NavbarProps) {
           }
         });
 
-        if (error) {
-          console.error("Supabase OAuth Error:", error);
-          setAuthError(`Erro Técnico: ${error.message}. Dica: Verifica se o Client ID e o Secret estão corretamente guardados no teu painel do Supabase em Authentication -> Providers.`);
-          return;
-        }
+        if (error) throw error;
 
         if (data?.url) {
           const width = 600;
@@ -154,12 +200,13 @@ export default function Navbar({ logoUrl }: NavbarProps) {
 
           if (!popup) {
             alert('O teu navegador bloqueou o pop-up de login. Por favor, permite pop-ups para este site.');
+          } else {
+            setIsAuthModalOpen(false);
           }
         }
-      }
     } catch (error: any) {
-      console.error("Login failed:", error);
-      setAuthError(error.message || 'Ocorreu um erro ao iniciar sessão.');
+      console.error("Google login failed:", error);
+      setAuthError(error.message || 'Ocorreu um erro ao iniciar sessão com Google.');
     }
   };
 
@@ -253,7 +300,8 @@ export default function Navbar({ logoUrl }: NavbarProps) {
   ];
 
   return (
-    <motion.nav 
+    <>
+      <motion.nav 
       initial={{ y: -100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       className="fixed top-2 left-[48%] -translate-x-1/2 w-[95%] max-w-7xl rounded-full px-3 sm:px-6 py-1.5 sm:py-2 glass-effect flex justify-between items-center z-[100] shadow-2xl shadow-shadow border border-border"
@@ -518,7 +566,7 @@ export default function Navbar({ logoUrl }: NavbarProps) {
               </div>
             ) : (
             <button 
-              onClick={handleLogin}
+              onClick={() => setIsAuthModalOpen(true)}
               className="bg-primary-dim hover:bg-primary text-white px-6 py-2 rounded-full text-sm font-bold transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20 flex items-center gap-2"
             >
               <LogIn size={18} />
@@ -607,7 +655,7 @@ export default function Navbar({ logoUrl }: NavbarProps) {
               {!user && (
                 <button 
                   onClick={() => {
-                    handleLogin();
+                    setIsAuthModalOpen(true);
                     setIsMobileMenuOpen(false);
                   }}
                   className="w-full bg-primary-dim text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2"
@@ -620,27 +668,188 @@ export default function Navbar({ logoUrl }: NavbarProps) {
           </motion.div>
         )}
       </AnimatePresence>
-      {/* Auth Error Toast */}
-      <AnimatePresence>
-        {authError && (
-          <motion.div 
-            key="auth-error-toast"
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-4 bg-error text-white rounded-2xl shadow-2xl z-[70] flex items-center gap-3 w-full max-w-sm mx-4"
-          >
-            <SettingsIcon size={20} className="shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-bold">Erro de Autenticação</p>
-              <p className="text-xs opacity-90">{authError}</p>
-            </div>
-            <button onClick={() => setAuthError(null)} className="p-1 hover:bg-white/10 rounded-full">
-              <X size={16} />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.nav>
+
+    {/* Auth Error Toast */}
+    <AnimatePresence>
+      {authError && (
+        <motion.div 
+          key="auth-error-toast"
+          initial={{ opacity: 0, y: 20, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 20, scale: 0.9 }}
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-4 bg-error text-white rounded-2xl shadow-2xl z-[70] flex items-center gap-3 w-full max-w-sm mx-4"
+        >
+          <SettingsIcon size={20} className="shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-bold">Erro de Autenticação</p>
+            <p className="text-xs opacity-90">{authError}</p>
+          </div>
+          <button onClick={() => setAuthError(null)} className="p-1 hover:bg-white/10 rounded-full">
+            <X size={16} />
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
+    {/* Auth Modal */}
+    <AnimatePresence>
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsAuthModalOpen(false)}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            className="relative w-full max-w-md bg-surface-container-highest rounded-[2.5rem] border border-border shadow-2xl overflow-hidden text-on-surface"
+          >
+            <button 
+              onClick={() => setIsAuthModalOpen(false)}
+              className="absolute top-6 right-6 p-2 text-on-surface-variant hover:text-primary transition-colors bg-white/5 rounded-full z-10"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="p-8 sm:p-10 space-y-8">
+              {/* Tabs de Autenticação */}
+              <div className="flex bg-surface-container-high p-1 rounded-2xl border border-border">
+                <button 
+                  onClick={() => { setAuthMode('login'); setAuthError(null); }}
+                  className={cn(
+                    "flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all",
+                    authMode === 'login' ? "bg-primary text-white shadow-lg" : "text-on-surface-variant hover:bg-white/5"
+                  )}
+                >
+                  Entrar
+                </button>
+                <button 
+                  onClick={() => { setAuthMode('signup'); setAuthError(null); }}
+                  className={cn(
+                    "flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all",
+                    authMode === 'signup' ? "bg-primary text-white shadow-lg" : "text-on-surface-variant hover:bg-white/5"
+                  )}
+                >
+                  Registar
+                </button>
+              </div>
+
+              <div className="text-center space-y-2">
+                <h3 className="text-2xl font-headline font-black text-on-surface">
+                  {authMode === 'login' ? 'Bem-vindo de volta' : authMode === 'signup' ? 'Cria a tua conta' : 'Recuperar palavra-passe'}
+                </h3>
+              </div>
+
+              <div className="space-y-4">
+                <button 
+                  onClick={handleGoogleLogin}
+                  disabled={isLoading}
+                  className="w-full bg-white text-black py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-gray-100 transition-all shadow-xl active:scale-95 disabled:opacity-50"
+                >
+                  <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+                  Continuar com Google
+                </button>
+
+                <div className="relative py-2">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-border opacity-50"></div>
+                  </div>
+                  <div className="relative flex justify-center text-[10px] uppercase tracking-widest font-black">
+                    <span className="bg-surface-container-highest px-4 text-on-surface-variant/50">ou via email</span>
+                  </div>
+                </div>
+
+                {authError && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="bg-error/10 border border-error/20 p-4 rounded-2xl text-error text-xs font-bold text-center"
+                  >
+                    {authError}
+                  </motion.div>
+                )}
+
+                <form onSubmit={authMode === 'login' ? handleLogin : authMode === 'signup' ? handleSignup : (e) => e.preventDefault()} className="space-y-4">
+                  {authMode === 'signup' && (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-4">Nome de Exibição</label>
+                      <input 
+                        type="text"
+                        required
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder="Como queres ser chamado?"
+                        className="w-full bg-surface-container-high border border-border focus:border-primary rounded-2xl py-4 px-6 text-sm text-on-surface outline-none transition-all placeholder:text-on-surface-variant/30 font-bold"
+                      />
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-4">Email</label>
+                    <input 
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="teu@email.com"
+                      className="w-full bg-surface-container-high border border-border focus:border-primary rounded-2xl py-4 px-6 text-sm text-on-surface outline-none transition-all placeholder:text-on-surface-variant/30 font-bold"
+                    />
+                  </div>
+                  {authMode !== 'forgot' && (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant ml-4">Palavra-passe</label>
+                      <input 
+                        type="password"
+                        required
+                        minLength={6}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full bg-surface-container-high border border-border focus:border-primary rounded-2xl py-4 px-6 text-sm text-on-surface outline-none transition-all placeholder:text-on-surface-variant/30 font-bold"
+                      />
+                    </div>
+                  )}
+
+                  {authMode === 'login' && (
+                    <div className="text-right">
+                      <button 
+                        type="button"
+                        onClick={() => setAuthMode('forgot')}
+                        className="text-[10px] font-black uppercase tracking-tighter text-on-surface-variant hover:text-primary transition-colors"
+                      >
+                        Esqueceste-te da palavra-passe?
+                      </button>
+                    </div>
+                  )}
+
+                  <button 
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-primary text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-primary-dim transition-all shadow-xl shadow-primary/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isLoading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    ) : (
+                      authMode === 'login' ? 'Iniciar Sessão' : authMode === 'signup' ? 'Criar Conta Grátis' : 'Enviar Link'
+                    )}
+                  </button>
+                </form>
+              </div>
+
+              <div className="text-center pt-2">
+                <p className="text-[10px] text-on-surface-variant font-medium opacity-50 uppercase tracking-tighter">
+                  Ao continuar, aceitas os nossos Termos de Serviço e Política de Privacidade.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  </>
   );
 }
